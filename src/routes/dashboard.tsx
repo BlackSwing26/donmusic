@@ -6,52 +6,117 @@ import galleryPiano from "../assets/gallery-piano.jpg";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
-const milestones = [
-  { title: "Rhythm Basics", status: "completed", progress: 100 },
-  { title: "Chord Progressions", status: "in-progress", progress: 65 },
-  { title: "Solo Composition", status: "locked", progress: 0 },
-  { title: "Ear Training II", status: "in-progress", progress: 42 },
-];
+type ClassData = {
+  id: string;
+  name: string;
+  description: string;
+  instrument: string;
+  level: string;
+  class_teachers?: { profiles: { full_name: string } }[];
+};
 
-const schedule = [
-  { day: "Mon", time: "4:30 PM", title: "Advanced Jazz Improv", with: "Dr. Aris Thorne" },
-  { day: "Wed", time: "6:00 PM", title: "Cello Technique Lab", with: "Elena Voss" },
-  { day: "Fri", time: "5:00 PM", title: "Composition Workshop", with: "Marcus Reed" },
-];
+type EnrollmentData = {
+  id: string;
+  class_id: string;
+  status: string;
+  classes: ClassData;
+};
 
 function Dashboard() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState("Student");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const [availableClasses, setAvailableClasses] = useState<ClassData[]>([]);
+  const [myEnrollments, setMyEnrollments] = useState<EnrollmentData[]>([]);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        navigate({ to: "/login" });
-        return;
-      }
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', session.user.id)
-        .single();
-        
-      if (profile?.full_name) {
-        setUserName(profile.full_name.split(' ')[0]);
-      }
-      setLoading(false);
-    };
-    
-    checkAuth();
+    fetchDashboardData();
   }, [navigate]);
+
+  const fetchDashboardData = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      navigate({ to: "/login" });
+      return;
+    }
+    
+    setCurrentUserId(session.user.id);
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', session.user.id)
+      .single();
+      
+    if (profile?.full_name) {
+      setUserName(profile.full_name.split(' ')[0]);
+    }
+
+    // Fetch my enrollments
+    const { data: enrollments, error: enrollError } = await supabase
+      .from('enrollments')
+      .select(`
+        id, class_id, status,
+        classes (
+          id, name, description, instrument, level,
+          class_teachers (
+            profiles (full_name)
+          )
+        )
+      `)
+      .eq('student_id', session.user.id);
+
+    if (enrollments && !enrollError) {
+      setMyEnrollments(enrollments as unknown as EnrollmentData[]);
+    }
+
+    // Fetch all classes
+    const { data: allClasses, error: classesError } = await supabase
+      .from('classes')
+      .select(`
+        id, name, description, instrument, level,
+        class_teachers (
+          profiles (full_name)
+        )
+      `);
+
+    if (allClasses && !classesError) {
+      // Filter out classes the user is already enrolled in
+      const enrolledClassIds = enrollments?.map(e => e.class_id) || [];
+      const available = allClasses.filter(c => !enrolledClassIds.includes(c.id));
+      setAvailableClasses(available as unknown as ClassData[]);
+    }
+
+    setLoading(false);
+  };
+
+  const handleEnroll = async (classId: string) => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('enrollments')
+        .insert([{
+          student_id: currentUserId,
+          class_id: classId,
+          status: 'pending'
+        }]);
+
+      if (error) throw error;
+      toast.success("Enrollment requested! Waiting for instructor approval.");
+      fetchDashboardData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to enroll");
+    }
+  };
 
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-gold">Loading campus...</div>;
@@ -59,26 +124,21 @@ function Dashboard() {
 
   return (
     <AppLayout role="student" title="Personal Campus">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 mb-12">
+      <div className="max-w-7xl mx-auto space-y-12">
+        
+        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6">
           <div>
             <h1 className="font-serif text-4xl md:text-5xl">Welcome back, {userName}.</h1>
           </div>
           <div className="flex gap-8">
             <div className="text-center">
-              <div className="text-3xl font-serif text-gold">14</div>
+              <div className="text-3xl font-serif text-gold">{myEnrollments.filter(e => e.status === 'active').length}</div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Day Streak
+                Active Classes
               </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-serif text-gold">85%</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Theory Mastery
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-serif text-gold">128</div>
+              <div className="text-3xl font-serif text-gold">0</div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 Practice Hrs
               </div>
@@ -86,113 +146,85 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6 mb-12">
-          {/* Next Lesson */}
-          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              Next Lesson
-            </span>
-            <h3 className="text-xl mt-4 mb-2 font-serif">Advanced Jazz Improv</h3>
-            <p className="text-muted-foreground text-sm mb-6">
-              Today at 4:30 PM with Dr. Aris Thorne
-            </p>
-            <img
-              src={lessonMaterials}
-              alt="Sheet music on a dark piano"
-              className="w-full h-32 object-cover bg-slate-custom mb-6 rounded-sm"
-            />
-            <button className="w-full py-3 border border-gold/50 text-gold text-[10px] font-bold uppercase tracking-widest hover:bg-gold hover:text-onyx transition-all">
-              Join Digital Studio
-            </button>
-          </div>
-
-          {/* Milestones */}
-          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              Milestones
-            </span>
-            <div className="mt-6 space-y-6">
-              {milestones.map((milestone) => (
-                <div key={milestone.title} className="flex justify-between items-center">
-                  <span
-                    className={
-                      milestone.status === "locked" ? "text-sm opacity-40" : "text-sm"
-                    }
-                  >
-                    {milestone.title}
-                  </span>
-                  {milestone.status === "completed" ? (
-                    <span className="text-[10px] text-gold border border-gold/30 px-2 py-0.5 rounded-sm">
-                      COMPLETED
-                    </span>
-                  ) : milestone.status === "locked" ? (
-                    <span className="text-[10px] uppercase opacity-50">Locked</span>
-                  ) : (
-                    <div className="h-1.5 w-24 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gold"
-                        style={{ width: `${milestone.progress}%` }}
-                      ></div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Weekly Schedule */}
-          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              This Week
-            </span>
-            <div className="mt-6 space-y-6">
-              {schedule.map((session) => (
-                <div key={session.title} className="flex gap-4">
-                  <div className="text-center min-w-[3rem]">
-                    <div className="text-xs font-bold text-gold uppercase">{session.day}</div>
-                    <div className="text-[10px] text-muted-foreground">{session.time}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">{session.title}</div>
-                    <div className="text-xs text-muted-foreground">{session.with}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Performance Replay */}
-          <div className="bg-slate-custom/30 border border-white/5 rounded-sm overflow-hidden flex flex-col">
-            <img
-              src={performanceHighlight}
-              alt="Cinematic stage lighting and microphone"
-              className="w-full aspect-video object-cover bg-slate-custom"
-            />
-            <div className="p-6">
-              <h3 className="font-serif text-lg">Winter Showcase Highlights</h3>
-              <p className="text-muted-foreground text-xs mt-2">
-                Watch the best moments from last night's live performance at The Grand Hall.
-              </p>
+          
+          {/* My Classes */}
+          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm flex flex-col h-full">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">
+              My Schedule
+            </span>
+            <h3 className="font-serif text-2xl mb-6">Enrolled Classes</h3>
+            
+            <div className="space-y-4 flex-grow overflow-y-auto max-h-[400px] pr-2">
+              {myEnrollments.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">You haven't enrolled in any classes yet.</p>
+              ) : (
+                myEnrollments.map((enrollment) => (
+                  <div key={enrollment.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-serif text-xl text-gold">{enrollment.classes.name}</h4>
+                      <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded-sm ${
+                        enrollment.status === 'active' ? 'bg-green-500/10 text-green-400' : 
+                        enrollment.status === 'pending' ? 'bg-yellow-500/10 text-yellow-400' : 
+                        'bg-white/10 text-white'
+                      }`}>
+                        {enrollment.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex gap-4">
+                      <span>Level: {enrollment.classes.level}</span>
+                      <span>Instrument: {enrollment.classes.instrument}</span>
+                    </div>
+                    {enrollment.classes.class_teachers && enrollment.classes.class_teachers.length > 0 && (
+                      <div className="text-xs mt-2 text-white/70">
+                        Instructor: {enrollment.classes.class_teachers[0].profiles?.full_name || 'Unknown'}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
-          {/* Recommended Next */}
-          <div className="bg-slate-custom/30 border border-white/5 rounded-sm overflow-hidden flex flex-col">
-            <img
-              src={galleryPiano}
-              alt="Hands playing a grand piano"
-              className="w-full aspect-video object-cover bg-slate-custom"
-            />
-            <div className="p-6">
-              <h3 className="font-serif text-lg">Recommended: Composition Workshop</h3>
-              <p className="text-muted-foreground text-xs mt-2">
-                Based on your progress, this workshop will strengthen your harmonic vocabulary.
-              </p>
+          {/* Available Classes */}
+          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm flex flex-col h-full">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">
+              Course Catalog
+            </span>
+            <h3 className="font-serif text-2xl mb-6">Available Classes</h3>
+            
+            <div className="space-y-4 flex-grow overflow-y-auto max-h-[400px] pr-2">
+              {availableClasses.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No new classes available right now.</p>
+              ) : (
+                availableClasses.map((cls) => (
+                  <div key={cls.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
+                    <h4 className="font-serif text-xl text-gold mb-1">{cls.name}</h4>
+                    <p className="text-sm text-muted-foreground mb-3">{cls.description}</p>
+                    
+                    <div className="flex justify-between items-end">
+                      <div className="text-xs text-white/50">
+                        {cls.class_teachers && cls.class_teachers.length > 0 ? (
+                          <span>With {cls.class_teachers[0].profiles?.full_name}</span>
+                        ) : (
+                          <span>Instructor TBA</span>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => handleEnroll(cls.id)}
+                        className="px-4 py-2 border border-gold/50 text-gold hover:bg-gold hover:text-onyx text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
+                      >
+                        Enroll
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
+
         </div>
+
       </div>
     </AppLayout>
   );
