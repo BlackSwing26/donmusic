@@ -22,15 +22,30 @@ function Login() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
       
-      toast.success("Logged in successfully");
-      navigate({ to: "/dashboard" });
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+          
+        toast.success("Logged in successfully");
+        
+        if (profile?.role === 'admin') {
+          navigate({ to: "/admin" });
+        } else if (profile?.role === 'teacher') {
+          navigate({ to: "/teacher" });
+        } else {
+          navigate({ to: "/dashboard" });
+        }
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to log in");
     } finally {
