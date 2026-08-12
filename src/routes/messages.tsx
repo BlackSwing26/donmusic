@@ -31,6 +31,7 @@ function MessagesRoute() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [unreadSenders, setUnreadSenders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -82,6 +83,18 @@ function MessagesRoute() {
       setContacts(profilesData);
     }
     
+    // Fetch unread messages to find senders
+    const { data: unreadData } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('receiver_id', session.user.id)
+      .eq('is_read', false);
+      
+    if (unreadData) {
+      const senders = new Set(unreadData.map(m => m.sender_id));
+      setUnreadSenders(senders);
+    }
+    
     setLoading(false);
   };
 
@@ -104,6 +117,12 @@ function MessagesRoute() {
           .from('messages')
           .update({ is_read: true })
           .in('id', unreadIncoming.map(m => m.id));
+          
+        setUnreadSenders(prev => {
+          const next = new Set(prev);
+          next.delete(contactId);
+          return next;
+        });
       }
     }
   };
@@ -161,11 +180,14 @@ function MessagesRoute() {
                   <button 
                     key={contact.id}
                     onClick={() => setSelectedContactId(contact.id)}
-                    className={`w-full text-left px-6 py-3 transition-colors ${
+                    className={`w-full text-left px-6 py-3 transition-colors flex justify-between items-center ${
                       selectedContactId === contact.id ? 'bg-gold/10 border-l-2 border-gold text-gold' : 'hover:bg-white/[0.02]'
                     }`}
                   >
-                    {contact.full_name}
+                    <span>{contact.full_name}</span>
+                    {unreadSenders.has(contact.id) && (
+                      <span className="size-2 rounded-full bg-red-500 animate-pulse"></span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -179,11 +201,14 @@ function MessagesRoute() {
                   <button 
                     key={contact.id}
                     onClick={() => setSelectedContactId(contact.id)}
-                    className={`w-full text-left px-6 py-3 transition-colors ${
+                    className={`w-full text-left px-6 py-3 transition-colors flex justify-between items-center ${
                       selectedContactId === contact.id ? 'bg-gold/10 border-l-2 border-gold text-gold' : 'hover:bg-white/[0.02]'
                     }`}
                   >
-                    {contact.full_name}
+                    <span>{contact.full_name}</span>
+                    {unreadSenders.has(contact.id) && (
+                      <span className="size-2 rounded-full bg-red-500 animate-pulse"></span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -197,11 +222,14 @@ function MessagesRoute() {
                   <button 
                     key={contact.id}
                     onClick={() => setSelectedContactId(contact.id)}
-                    className={`w-full text-left px-6 py-3 transition-colors ${
+                    className={`w-full text-left px-6 py-3 transition-colors flex justify-between items-center ${
                       selectedContactId === contact.id ? 'bg-gold/10 border-l-2 border-gold text-gold' : 'hover:bg-white/[0.02]'
                     }`}
                   >
-                    {contact.full_name}
+                    <span>{contact.full_name}</span>
+                    {unreadSenders.has(contact.id) && (
+                      <span className="size-2 rounded-full bg-red-500 animate-pulse"></span>
+                    )}
                   </button>
                 ))}
               </div>
