@@ -33,6 +33,15 @@ type UpcomingSession = {
   hasCheckedIn: boolean;
 };
 
+type AssignmentData = {
+  id: string;
+  title: string;
+  description: string;
+  due_date: string;
+  classes: { name: string };
+  assignment_submissions: { status: string }[];
+};
+
 function Dashboard() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState("Student");
@@ -42,6 +51,7 @@ function Dashboard() {
   const [availableClasses, setAvailableClasses] = useState<ClassData[]>([]);
   const [myEnrollments, setMyEnrollments] = useState<EnrollmentData[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
+  const [myAssignments, setMyAssignments] = useState<AssignmentData[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -113,6 +123,26 @@ function Dashboard() {
           }));
           setUpcomingSessions(formattedSessions);
         }
+
+        // Fetch Assignments
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from('assignments')
+          .select(`
+            id, title, description, due_date,
+            classes (name),
+            assignment_submissions (status, student_id)
+          `)
+          .in('class_id', activeClassIds)
+          .order('due_date', { ascending: true });
+
+        if (assignments && !assignmentsError) {
+          // Filter out submissions for other students
+          const formattedAssignments = assignments.map((a: any) => ({
+            ...a,
+            assignment_submissions: a.assignment_submissions?.filter((sub: any) => sub.student_id === userId) || []
+          }));
+          setMyAssignments(formattedAssignments);
+        }
       }
     }
 
@@ -171,6 +201,25 @@ function Dashboard() {
       fetchDashboardData();
     } catch (err: any) {
       toast.error(err.message || "Failed to check in");
+    }
+  };
+
+  const handleCompleteAssignment = async (assignmentId: string) => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('assignment_submissions')
+        .insert([{
+          assignment_id: assignmentId,
+          student_id: currentUserId,
+          status: 'completed'
+        }]);
+
+      if (error) throw error;
+      toast.success("Assignment completed! Great job!");
+      fetchDashboardData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to complete assignment");
     }
   };
 
@@ -234,6 +283,51 @@ function Dashboard() {
                         className="w-full py-2 bg-gold/10 text-gold border border-gold/30 hover:bg-gold hover:text-onyx text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm"
                       >
                         Check-in
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* My Assignments Module */}
+        {myAssignments.length > 0 && (
+          <div>
+            <h2 className="font-serif text-3xl mb-6 border-b border-white/5 pb-4">My Coursework</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myAssignments.map(assignment => {
+                const dateObj = new Date(assignment.due_date);
+                const isCompleted = assignment.assignment_submissions?.some(s => s.status === 'completed');
+                
+                return (
+                  <div key={assignment.id} className={`p-6 border border-white/5 rounded-sm flex flex-col justify-between ${
+                    isCompleted ? 'bg-black/20 opacity-60' : 'bg-slate-custom/30'
+                  }`}>
+                    <div>
+                      <span className="text-[10px] font-bold text-gold uppercase tracking-widest mb-2 block">
+                        Due: {dateObj.toLocaleDateString()}
+                      </span>
+                      <h3 className="font-serif text-xl mb-1">{assignment.title}</h3>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3 font-bold">
+                        {assignment.classes?.name}
+                      </div>
+                      <p className="text-sm text-foreground/80 mb-6">
+                        {assignment.description}
+                      </p>
+                    </div>
+                    
+                    {isCompleted ? (
+                      <div className="w-full text-center py-2 bg-green-500/10 text-green-400 border border-green-500/30 text-[10px] font-bold uppercase tracking-widest rounded-sm">
+                        Completed
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleCompleteAssignment(assignment.id)}
+                        className="w-full py-2 bg-gold text-onyx hover:bg-gold/90 text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm"
+                      >
+                        Mark Complete
                       </button>
                     )}
                   </div>

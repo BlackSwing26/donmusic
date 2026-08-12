@@ -21,6 +21,7 @@ type Message = {
   receiver_id: string;
   content: string;
   created_at: string;
+  is_read?: boolean;
 };
 
 function MessagesRoute() {
@@ -95,6 +96,15 @@ function MessagesRoute() {
 
     if (data && !error) {
       setMessages(data as Message[]);
+      
+      // Mark incoming messages as read
+      const unreadIncoming = data.filter(m => m.receiver_id === currentUser.id && m.is_read === false);
+      if (unreadIncoming.length > 0) {
+        await supabase
+          .from('messages')
+          .update({ is_read: true })
+          .in('id', unreadIncoming.map(m => m.id));
+      }
     }
   };
 

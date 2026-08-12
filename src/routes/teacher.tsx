@@ -48,6 +48,12 @@ function TeacherDashboard() {
   const [selectedClassId, setSelectedClassId] = useState("");
   const [sessionDate, setSessionDate] = useState("");
   const [sessionTime, setSessionTime] = useState("");
+  
+  // Assignment State
+  const [assignmentClassId, setAssignmentClassId] = useState("");
+  const [assignmentTitle, setAssignmentTitle] = useState("");
+  const [assignmentDesc, setAssignmentDesc] = useState("");
+  const [assignmentDue, setAssignmentDue] = useState("");
 
   useEffect(() => {
     fetchTeacherData();
@@ -197,6 +203,35 @@ function TeacherDashboard() {
     }
   };
 
+  const handleCreateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUserId || !assignmentClassId || !assignmentTitle || !assignmentDue) {
+      toast.error("Please fill out all required fields");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('assignments')
+        .insert([{
+          class_id: assignmentClassId,
+          teacher_id: currentUserId,
+          title: assignmentTitle,
+          description: assignmentDesc,
+          due_date: new Date(assignmentDue).toISOString()
+        }]);
+
+      if (error) throw error;
+      toast.success("Assignment created successfully!");
+      setAssignmentTitle("");
+      setAssignmentDesc("");
+      setAssignmentDue("");
+      setAssignmentClassId("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create assignment");
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-gold">Loading faculty portal...</div>;
   }
@@ -329,6 +364,65 @@ function TeacherDashboard() {
             </div>
           </div>
           
+        </div>
+
+        {/* Create Assignment Form */}
+        <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8 mt-6">
+          <h3 className="font-serif text-2xl mb-6">Create Assignment</h3>
+          <form onSubmit={handleCreateAssignment} className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Select Class</label>
+                <select 
+                  required
+                  value={assignmentClassId}
+                  onChange={e => setAssignmentClassId(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                >
+                  <option value="">-- Choose a class --</option>
+                  {myClasses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.level})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Due Date</label>
+                <input 
+                  type="date" 
+                  required
+                  value={assignmentDue}
+                  onChange={e => setAssignmentDue(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Assignment Title</label>
+              <input 
+                type="text" 
+                required
+                value={assignmentTitle}
+                onChange={e => setAssignmentTitle(e.target.value)}
+                placeholder="e.g. Practice C Major Scales"
+                className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Description / Instructions</label>
+              <textarea 
+                value={assignmentDesc}
+                onChange={e => setAssignmentDesc(e.target.value)}
+                placeholder="What exactly should they do?"
+                className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold min-h-[80px]"
+              />
+            </div>
+            
+            <button type="submit" className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-foreground text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm mt-4">
+              Assign to Class
+            </button>
+          </form>
         </div>
 
         <div>

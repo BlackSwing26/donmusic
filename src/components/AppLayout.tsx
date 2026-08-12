@@ -13,6 +13,7 @@ export function AppLayout({ children, role = "student", title = "Dashboard" }: A
   const currentPath = location.pathname;
   const navigate = useNavigate();
   const [userName, setUserName] = useState("User");
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -27,9 +28,18 @@ export function AppLayout({ children, role = "student", title = "Dashboard" }: A
               setUserName(data.full_name.split(" ")[0]);
             }
           });
+          
+        supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("receiver_id", session.user.id)
+          .eq("is_read", false)
+          .then(({ count }) => {
+            setHasUnreadMessages((count || 0) > 0);
+          });
       }
     });
-  }, []);
+  }, [currentPath]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -78,13 +88,16 @@ export function AppLayout({ children, role = "student", title = "Dashboard" }: A
               <Link
                 key={link.to}
                 to={link.to}
-                className={`block px-4 py-2 rounded-sm text-sm font-medium transition-colors ${
+                className={`block px-4 py-2 rounded-sm text-sm font-medium transition-colors flex items-center justify-between ${
                   currentPath === link.to
                     ? "bg-gold text-onyx"
                     : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                 }`}
               >
-                {link.label}
+                <span>{link.label}</span>
+                {link.to === "/messages" && hasUnreadMessages && (
+                  <span className="size-2 rounded-full bg-red-500 animate-pulse"></span>
+                )}
               </Link>
             ))}
           </nav>
