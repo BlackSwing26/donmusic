@@ -1,8 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout } from "../components/AppLayout";
-import lessonMaterials from "../assets/lesson-materials.jpg";
-import performanceHighlight from "../assets/performance-highlight.jpg";
-import galleryPiano from "../assets/gallery-piano.jpg";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../integrations/supabase/client";
@@ -28,6 +25,14 @@ type EnrollmentData = {
   classes: ClassData;
 };
 
+type UpcomingSession = {
+  id: string;
+  class_id: string;
+  scheduled_for: string;
+  classes: { name: string, class_teachers?: { profiles: { full_name: string } }[] };
+  hasCheckedIn: boolean;
+};
+
 function Dashboard() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState("Student");
@@ -36,6 +41,7 @@ function Dashboard() {
   
   const [availableClasses, setAvailableClasses] = useState<ClassData[]>([]);
   const [myEnrollments, setMyEnrollments] = useState<EnrollmentData[]>([]);
+  const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -49,12 +55,13 @@ function Dashboard() {
       return;
     }
     
-    setCurrentUserId(session.user.id);
+    const userId = session.user.id;
+    setCurrentUserId(userId);
     
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name')
-      .eq('id', session.user.id)
+      .eq('id', userId)
       .single();
       
     if (profile?.full_name) {
@@ -73,10 +80,40 @@ function Dashboard() {
           )
         )
       `)
-      .eq('student_id', session.user.id);
+      .eq('student_id', userId);
 
     if (enrollments && !enrollError) {
       setMyEnrollments(enrollments as unknown as EnrollmentData[]);
+      
+      // Fetch upcoming sessions for ACTIVE enrollments
+      const activeClassIds = enrollments.filter(e => e.status === 'active').map(e => e.class_id);
+      
+      if (activeClassIds.length > 0) {
+        const { data: sessions, error: sessionsError } = await supabase
+          .from('class_sessions')
+          .select(`
+            id, class_id, scheduled_for,
+            classes (
+              name,
+              class_teachers (profiles (full_name))
+            ),
+            attendance (student_id)
+          `)
+          .in('class_id', activeClassIds)
+          .eq('status', 'scheduled')
+          .order('scheduled_for', { ascending: true });
+          
+        if (sessions && !sessionsError) {
+          const formattedSessions = sessions.map((s: any) => ({
+            id: s.id,
+            class_id: s.class_id,
+            scheduled_for: s.scheduled_for,
+            classes: s.classes,
+            hasCheckedIn: s.attendance?.some((att: any) => att.student_id === userId) || false
+          }));
+          setUpcomingSessions(formattedSessions);
+        }
+      }
     }
 
     // Fetch all classes
@@ -118,6 +155,25 @@ function Dashboard() {
     }
   };
 
+  const handleCheckIn = async (sessionId: string) => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .insert([{
+          session_id: sessionId,
+          student_id: currentUserId,
+          status: 'present'
+        }]);
+
+      if (error) throw error;
+      toast.success("Checked in successfully!");
+      fetchDashboardData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to check in");
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-gold">Loading campus...</div>;
   }
@@ -138,13 +194,54 @@ function Dashboard() {
               </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-serif text-gold">0</div>
+              <div className="text-3xl font-serif text-gold">{upcomingSessions.length}</div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Practice Hrs
+                Upcoming Lessons
               </div>
             </div>
           </div>
         </div>
+
+        {/* Upcoming Lessons Module */}
+        {upcomingSessions.length > 0 && (
+          <div>
+            <h2 className="font-serif text-3xl mb-6 border-b border-white/5 pb-4">Next Lessons</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {upcomingSessions.map(session => {
+                const dateObj = new Date(session.scheduled_for);
+                const dateStr = dateObj.toLocaleDateString();
+                const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                return (
+                  <div key={session.id} className="bg-slate-custom/30 p-6 border border-white/5 rounded-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-gold uppercase tracking-widest mb-2 block">
+                        {dateStr} • {timeStr}
+                      </span>
+                      <h3 className="font-serif text-xl mb-1">{session.classes.name}</h3>
+                      <p className="text-xs text-muted-foreground mb-6">
+                        Instructor: {session.classes.class_teachers?.[0]?.profiles?.full_name || 'Unknown'}
+                      </p>
+                    </div>
+                    
+                    {session.hasCheckedIn ? (
+                      <div className="w-full text-center py-2 bg-green-500/10 text-green-400 border border-green-500/30 text-[10px] font-bold uppercase tracking-widest rounded-sm">
+                        Checked In
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleCheckIn(session.id)}
+                        className="w-full py-2 bg-gold/10 text-gold border border-gold/30 hover:bg-gold hover:text-onyx text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm"
+                      >
+                        Check-in
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-6">
           

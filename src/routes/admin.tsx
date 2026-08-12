@@ -26,13 +26,22 @@ type ClassData = {
   teachers?: { teacher_id: string; profiles: { full_name: string } }[];
 };
 
+type CompletedSession = {
+  id: string;
+  scheduled_for: string;
+  classes: { name: string };
+  profiles: { full_name: string };
+};
+
 function AdminDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [classes, setClasses] = useState<ClassData[]>([]);
-  const [stats, setStats] = useState({ students: 0, teachers: 0, activeClasses: 0 });
+  const [stats, setStats] = useState({ students: 0, teachers: 0, activeClasses: 0, completedLessons: 0 });
+  
+  const [recentLessons, setRecentLessons] = useState<CompletedSession[]>([]);
 
   // Catalog Form State
   const [newClassName, setNewClassName] = useState("");
@@ -100,6 +109,23 @@ function AdminDashboard() {
     if (!classesError && classesData) {
       setClasses(classesData as unknown as ClassData[]);
       setStats(prev => ({ ...prev, activeClasses: classesData.length }));
+    }
+
+    // Fetch recent completed lessons
+    const { data: doneSessions, error: doneSessionsError } = await supabase
+      .from('class_sessions')
+      .select(`
+        id, scheduled_for,
+        classes (name),
+        profiles:teacher_id (full_name)
+      `)
+      .eq('status', 'done')
+      .order('scheduled_for', { ascending: false })
+      .limit(10);
+
+    if (doneSessions && !doneSessionsError) {
+      setRecentLessons(doneSessions as unknown as CompletedSession[]);
+      setStats(prev => ({ ...prev, completedLessons: doneSessions.length }));
     }
 
     setLoading(false);
@@ -209,7 +235,8 @@ function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-3 gap-6">
+          
           <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Quick Actions</span>
             <h3 className="text-xl mt-4 mb-2 font-serif">User Management</h3>
@@ -227,6 +254,32 @@ function AdminDashboard() {
               Jump to Catalog
             </a>
           </div>
+
+          {/* Activity Feed */}
+          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm flex flex-col h-full max-h-[300px]">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">
+              Recent Activity
+            </span>
+            <h3 className="font-serif text-xl mb-4">Completed Lessons</h3>
+            <div className="space-y-4 overflow-y-auto pr-2">
+              {recentLessons.length === 0 ? (
+                <p className="text-sm italic text-muted-foreground">No completed lessons yet.</p>
+              ) : (
+                recentLessons.map(lesson => {
+                  const dateStr = new Date(lesson.scheduled_for).toLocaleDateString();
+                  return (
+                    <div key={lesson.id} className="border-l-2 border-green-500 pl-3">
+                      <div className="text-sm font-bold text-gold">{lesson.classes.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Taught by {lesson.profiles?.full_name} on {dateStr}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          
         </div>
 
         {/* User Directory */}

@@ -25,12 +25,29 @@ type AssignedClass = {
   enrollments: EnrolledStudent[];
 };
 
+type SessionData = {
+  id: string;
+  class_id: string;
+  scheduled_for: string;
+  status: string;
+  classes: { name: string, instrument: string, level: string };
+  attendance: { student_id: string, profiles: { full_name: string } }[];
+};
+
 function TeacherDashboard() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState("Instructor");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  
   const [myClasses, setMyClasses] = useState<AssignedClass[]>([]);
+  const [mySessions, setMySessions] = useState<SessionData[]>([]);
   const [stats, setStats] = useState({ totalClasses: 0, totalStudents: 0 });
+
+  // Scheduling State
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [sessionDate, setSessionDate] = useState("");
+  const [sessionTime, setSessionTime] = useState("");
 
   useEffect(() => {
     fetchTeacherData();
@@ -43,6 +60,8 @@ function TeacherDashboard() {
       navigate({ to: "/login" });
       return;
     }
+    
+    setCurrentUserId(session.user.id);
     
     const { data: profile } = await supabase
       .from('profiles')
@@ -94,6 +113,24 @@ function TeacherDashboard() {
       });
     }
 
+    // Fetch sessions
+    const { data: sessionsData, error: sessionsError } = await supabase
+      .from('class_sessions')
+      .select(`
+        id, class_id, scheduled_for, status,
+        classes (name, instrument, level),
+        attendance (
+          student_id,
+          profiles:student_id (full_name)
+        )
+      `)
+      .eq('teacher_id', session.user.id)
+      .order('scheduled_for', { ascending: true });
+
+    if (sessionsData && !sessionsError) {
+      setMySessions(sessionsData as unknown as SessionData[]);
+    }
+
     setLoading(false);
   };
 
@@ -113,9 +150,58 @@ function TeacherDashboard() {
     }
   };
 
+  const handleScheduleSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUserId || !selectedClassId || !sessionDate || !sessionTime) {
+      toast.error("Please fill out all fields");
+      return;
+    }
+
+    // Combine date and time to ISO string
+    const scheduledFor = new Date(`${sessionDate}T${sessionTime}`).toISOString();
+
+    try {
+      const { error } = await supabase
+        .from('class_sessions')
+        .insert([{
+          class_id: selectedClassId,
+          teacher_id: currentUserId,
+          scheduled_for: scheduledFor,
+          status: 'scheduled'
+        }]);
+
+      if (error) throw error;
+      toast.success("Lesson scheduled successfully!");
+      setSessionDate("");
+      setSessionTime("");
+      setSelectedClassId("");
+      fetchTeacherData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to schedule lesson");
+    }
+  };
+
+  const handleMarkSessionDone = async (sessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('class_sessions')
+        .update({ status: 'done' })
+        .eq('id', sessionId);
+        
+      if (error) throw error;
+      
+      toast.success("Lesson marked as done!");
+      fetchTeacherData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update session");
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-gold">Loading faculty portal...</div>;
   }
+
+  const activeSessions = mySessions.filter(s => s.status === 'scheduled');
 
   return (
     <AppLayout role="teacher" title="Faculty Portal">
@@ -137,7 +223,112 @@ function TeacherDashboard() {
                 Active Students
               </div>
             </div>
+            <div className="text-center">
+              <div className="text-3xl font-serif text-gold">{activeSessions.length}</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Upcoming Lessons
+              </div>
+            </div>
           </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          
+          {/* Schedule Lesson Form */}
+          <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8">
+            <h3 className="font-serif text-2xl mb-6">Schedule a Lesson</h3>
+            <form onSubmit={handleScheduleSession} className="space-y-4">
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Select Class</label>
+                <select 
+                  required
+                  value={selectedClassId}
+                  onChange={e => setSelectedClassId(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                >
+                  <option value="">-- Choose a class --</option>
+                  {myClasses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.level})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Date</label>
+                  <input 
+                    type="date" 
+                    required
+                    value={sessionDate}
+                    onChange={e => setSessionDate(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Time</label>
+                  <input 
+                    type="time" 
+                    required
+                    value={sessionTime}
+                    onChange={e => setSessionTime(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                  />
+                </div>
+              </div>
+              <button type="submit" className="w-full py-3 bg-gold text-onyx text-[10px] font-bold uppercase tracking-widest hover:bg-gold/90 transition-all rounded-sm mt-4">
+                Schedule Lesson
+              </button>
+            </form>
+          </div>
+
+          {/* Active Sessions */}
+          <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8 flex flex-col max-h-[400px]">
+            <h3 className="font-serif text-2xl mb-6">Upcoming Lessons</h3>
+            <div className="space-y-4 overflow-y-auto flex-grow pr-2">
+              {activeSessions.length === 0 ? (
+                <p className="text-sm italic text-muted-foreground">No upcoming lessons scheduled.</p>
+              ) : (
+                activeSessions.map(session => {
+                  const dateObj = new Date(session.scheduled_for);
+                  const dateStr = dateObj.toLocaleDateString();
+                  const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  
+                  return (
+                    <div key={session.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-serif text-xl text-gold">{session.classes.name}</h4>
+                        <button 
+                          onClick={() => handleMarkSessionDone(session.id)}
+                          className="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500 hover:text-black text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
+                        >
+                          Mark Done
+                        </button>
+                      </div>
+                      <div className="text-xs text-muted-foreground mb-3">
+                        {dateStr} at {timeStr}
+                      </div>
+                      
+                      {/* Attendance Display */}
+                      <div className="mt-2 border-t border-white/5 pt-2">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Checked In Students:</span>
+                        {session.attendance && session.attendance.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {session.attendance.map(att => (
+                              <span key={att.student_id} className="text-xs bg-white/5 px-2 py-1 rounded-sm text-white">
+                                {att.profiles?.full_name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs italic text-muted-foreground">No students checked in yet</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          
         </div>
 
         <div>
