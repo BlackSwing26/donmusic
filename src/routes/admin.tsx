@@ -524,7 +524,6 @@ function AdminDashboard() {
           )}
 
         </div>
-      </div>
     </AppLayout>
   );
 }

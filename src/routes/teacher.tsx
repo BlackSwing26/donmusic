@@ -502,7 +502,6 @@ function TeacherDashboard() {
             </div>
           )}
         </div>
-      </div>
     </AppLayout>
   );
 }
