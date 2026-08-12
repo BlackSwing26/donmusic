@@ -50,26 +50,34 @@ export function AppLayout({ children, role = "student", title = "Dashboard" }: A
     switch (role) {
       case "admin":
         return [
-          { to: "/admin", label: "Overview" },
-          { to: "/classes", label: "Catalog" },
-          { to: "/messages", label: "Messages" },
+          { to: "/admin", search: { tab: "overview" }, label: "Overview" },
+          { to: "/admin", search: { tab: "create-class" }, label: "Create Class" },
+          { to: "/admin", search: { tab: "teachers" }, label: "Teacher List" },
+          { to: "/admin", search: { tab: "students" }, label: "Student List" },
+          { to: "/admin", search: { tab: "lessons" }, label: "Completed Lessons" },
+          { to: "/messages", search: null, label: "Messages" },
         ];
       case "teacher":
         return [
-          { to: "/teacher", label: "My Classes" },
-          { to: "/instructors", label: "Faculty Directory" },
-          { to: "/messages", label: "Messages" },
+          { to: "/teacher", search: { tab: "schedule" }, label: "Schedule & Lessons" },
+          { to: "/teacher", search: { tab: "roster" }, label: "My Roster" },
+          { to: "/teacher", search: { tab: "assignments" }, label: "Create Assignments" },
+          { to: "/messages", search: null, label: "Messages" },
         ];
       default: // student
         return [
-          { to: "/dashboard", label: "My Campus" },
-          { to: "/classes", label: "Browse Classes" },
-          { to: "/messages", label: "Messages" },
+          { to: "/dashboard", search: { tab: "lessons" }, label: "Upcoming Lessons" },
+          { to: "/dashboard", search: { tab: "coursework" }, label: "My Coursework" },
+          { to: "/dashboard", search: { tab: "schedule" }, label: "Enrolled Classes" },
+          { to: "/dashboard", search: { tab: "catalog" }, label: "Course Catalog" },
+          { to: "/messages", search: null, label: "Messages" },
         ];
     }
   };
 
   const links = getLinks();
+  const searchParams = location.search as { tab?: string };
+  const currentTab = searchParams.tab;
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row text-foreground font-sans">
@@ -84,22 +92,33 @@ export function AppLayout({ children, role = "student", title = "Dashboard" }: A
             <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">
               {role} Menu
             </div>
-            {links.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`block px-4 py-2 rounded-sm text-sm font-medium transition-colors flex items-center justify-between ${
-                  currentPath === link.to
-                    ? "bg-gold text-onyx"
-                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                }`}
-              >
-                <span>{link.label}</span>
-                {link.to === "/messages" && hasUnreadMessages && (
-                  <span className="size-2 rounded-full bg-red-500 animate-pulse"></span>
-                )}
-              </Link>
-            ))}
+            {links.map((link) => {
+              // Determine if active
+              const isPathMatch = currentPath === link.to;
+              const isTabMatch = link.search ? currentTab === link.search.tab : true;
+              
+              // Special case: if path matches but no tab is specified in URL, the first link with the path is active
+              const isDefaultTab = isPathMatch && !currentTab && (link.search?.tab === 'overview' || link.search?.tab === 'schedule' || link.search?.tab === 'lessons');
+              const isActive = (isPathMatch && isTabMatch) || isDefaultTab;
+              
+              return (
+                <Link
+                  key={`${link.to}-${link.search?.tab || 'none'}`}
+                  to={link.to}
+                  search={link.search || undefined}
+                  className={`block px-4 py-2 rounded-sm text-sm font-medium transition-colors flex items-center justify-between ${
+                    isActive
+                      ? "bg-gold text-onyx"
+                      : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                  }`}
+                >
+                  <span>{link.label}</span>
+                  {link.to === "/messages" && hasUnreadMessages && (
+                    <span className="size-2 rounded-full bg-red-500 animate-pulse"></span>
+                  )}
+                </Link>
+              );
+            })}
           </nav>
         </div>
 

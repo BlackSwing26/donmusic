@@ -5,7 +5,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../integrations/supabase/client";
 import { toast } from "sonner";
 
+type TeacherSearch = { tab?: string };
+
 export const Route = createFileRoute("/teacher")({
+  validateSearch: (search: Record<string, unknown>): TeacherSearch => {
+    return {
+      tab: search.tab as string | undefined,
+    };
+  },
   component: TeacherDashboard,
 });
 
@@ -43,6 +50,8 @@ function TeacherDashboard() {
   const [myClasses, setMyClasses] = useState<AssignedClass[]>([]);
   const [mySessions, setMySessions] = useState<SessionData[]>([]);
   const [stats, setStats] = useState({ totalClasses: 0, totalStudents: 0 });
+  const searchParams = Route.useSearch();
+  const activeTab = searchParams.tab || 'schedule';
 
   // Scheduling State
   const [selectedClassId, setSelectedClassId] = useState("");
@@ -240,252 +249,259 @@ function TeacherDashboard() {
 
   return (
     <AppLayout role="teacher" title="Faculty Portal">
-      <div className="max-w-7xl mx-auto space-y-12">
-        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6">
-          <div>
-            <h1 className="font-serif text-4xl md:text-5xl">Welcome, {userName}.</h1>
-          </div>
-          <div className="flex gap-8">
-            <div className="text-center">
-              <div className="text-3xl font-serif text-gold">{stats.totalClasses}</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                My Classes
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-serif text-gold">{stats.totalStudents}</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Active Students
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-serif text-gold">{activeSessions.length}</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Upcoming Lessons
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-6">
+      <div className="max-w-7xl mx-auto pb-12 space-y-8">
           
-          {/* Schedule Lesson Form */}
-          <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8">
-            <h3 className="font-serif text-2xl mb-6">Schedule a Lesson</h3>
-            <form onSubmit={handleScheduleSession} className="space-y-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Select Class</label>
-                <select 
-                  required
-                  value={selectedClassId}
-                  onChange={e => setSelectedClassId(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
-                >
-                  <option value="">-- Choose a class --</option>
-                  {myClasses.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.level})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Date</label>
-                  <input 
-                    type="date" 
-                    required
-                    value={sessionDate}
-                    onChange={e => setSessionDate(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Time</label>
-                  <input 
-                    type="time" 
-                    required
-                    value={sessionTime}
-                    onChange={e => setSessionTime(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
-                  />
+          <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 bg-slate-custom/30 p-8 border border-white/5 rounded-sm">
+            <div>
+              <h1 className="font-serif text-3xl mb-2">Welcome, {userName}.</h1>
+              <p className="text-muted-foreground text-sm">Here is your faculty overview</p>
+            </div>
+            <div className="flex gap-8">
+              <div className="text-center">
+                <div className="text-3xl font-serif text-gold">{stats.totalClasses}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  My Classes
                 </div>
               </div>
-              <button type="submit" className="w-full py-3 bg-gold text-onyx text-[10px] font-bold uppercase tracking-widest hover:bg-gold/90 transition-all rounded-sm mt-4">
-                Schedule Lesson
-              </button>
-            </form>
+              <div className="text-center">
+                <div className="text-3xl font-serif text-gold">{stats.totalStudents}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Active Students
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-serif text-gold">{activeSessions.length}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Upcoming Lessons
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Active Sessions */}
-          <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8 flex flex-col max-h-[400px]">
-            <h3 className="font-serif text-2xl mb-6">Upcoming Lessons</h3>
-            <div className="space-y-4 overflow-y-auto flex-grow pr-2">
-              {activeSessions.length === 0 ? (
-                <p className="text-sm italic text-muted-foreground">No upcoming lessons scheduled.</p>
-              ) : (
-                activeSessions.map(session => {
-                  const dateObj = new Date(session.scheduled_for);
-                  const dateStr = dateObj.toLocaleDateString();
-                  const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  
-                  return (
-                    <div key={session.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-serif text-xl text-gold">{session.classes.name}</h4>
-                        <button 
-                          onClick={() => handleMarkSessionDone(session.id)}
-                          className="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500 hover:text-black text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
-                        >
-                          Mark Done
-                        </button>
-                      </div>
-                      <div className="text-xs text-muted-foreground mb-3">
-                        {dateStr} at {timeStr}
-                      </div>
-                      
-                      {/* Attendance Display */}
-                      <div className="mt-2 border-t border-white/5 pt-2">
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Checked In Students:</span>
-                        {session.attendance && session.attendance.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {session.attendance.map(att => (
-                              <span key={att.student_id} className="text-xs bg-white/5 px-2 py-1 rounded-sm text-white">
-                                {att.profiles?.full_name}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs italic text-muted-foreground">No students checked in yet</span>
-                        )}
-                      </div>
+          {activeTab === 'schedule' && (
+            <div className="grid lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Schedule Lesson Form */}
+              <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8">
+                <h3 className="font-serif text-2xl mb-6">Schedule a Lesson</h3>
+                <form onSubmit={handleScheduleSession} className="space-y-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Select Class</label>
+                    <select 
+                      required
+                      value={selectedClassId}
+                      onChange={e => setSelectedClassId(e.target.value)}
+                      className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                    >
+                      <option value="">-- Choose a class --</option>
+                      {myClasses.map(c => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.level})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Date</label>
+                      <input 
+                        type="date" 
+                        required
+                        value={sessionDate}
+                        onChange={e => setSessionDate(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                      />
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-          
-        </div>
-
-        {/* Create Assignment Form */}
-        <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8 mt-6">
-          <h3 className="font-serif text-2xl mb-6">Create Assignment</h3>
-          <form onSubmit={handleCreateAssignment} className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Select Class</label>
-                <select 
-                  required
-                  value={assignmentClassId}
-                  onChange={e => setAssignmentClassId(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
-                >
-                  <option value="">-- Choose a class --</option>
-                  {myClasses.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.level})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Due Date</label>
-                <input 
-                  type="date" 
-                  required
-                  value={assignmentDue}
-                  onChange={e => setAssignmentDue(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Assignment Title</label>
-              <input 
-                type="text" 
-                required
-                value={assignmentTitle}
-                onChange={e => setAssignmentTitle(e.target.value)}
-                placeholder="e.g. Practice C Major Scales"
-                className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Description / Instructions</label>
-              <textarea 
-                value={assignmentDesc}
-                onChange={e => setAssignmentDesc(e.target.value)}
-                placeholder="What exactly should they do?"
-                className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold min-h-[80px]"
-              />
-            </div>
-            
-            <button type="submit" className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-foreground text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm mt-4">
-              Assign to Class
-            </button>
-          </form>
-        </div>
-
-        <div>
-          <h2 className="font-serif text-3xl mb-8 border-b border-white/5 pb-4">My Roster</h2>
-          
-          {myClasses.length === 0 ? (
-            <div className="bg-slate-custom/30 p-12 border border-white/5 rounded-sm text-center">
-              <p className="text-muted-foreground">You have not been assigned to any classes yet.</p>
-            </div>
-          ) : (
-            <div className="grid lg:grid-cols-2 gap-6">
-              {myClasses.map((cls) => (
-                <div key={cls.id} className="bg-slate-custom/30 border border-white/5 rounded-sm flex flex-col max-h-[500px]">
-                  
-                  {/* Class Header */}
-                  <div className="p-6 border-b border-white/5 bg-black/20">
-                    <h3 className="font-serif text-2xl text-gold">{cls.name}</h3>
-                    <div className="flex gap-4 text-xs text-muted-foreground mt-2">
-                      <span>{cls.instrument}</span>
-                      <span>•</span>
-                      <span>{cls.level}</span>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Time</label>
+                      <input 
+                        type="time" 
+                        required
+                        value={sessionTime}
+                        onChange={e => setSessionTime(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                      />
                     </div>
                   </div>
+                  <button type="submit" className="w-full py-3 bg-gold text-onyx text-[10px] font-bold uppercase tracking-widest hover:bg-gold/90 transition-all rounded-sm mt-4">
+                    Schedule Lesson
+                  </button>
+                </form>
+              </div>
 
-                  {/* Student List */}
-                  <div className="p-6 overflow-y-auto flex-grow">
-                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Enrolled Students</h4>
-                    
-                    <div className="space-y-3">
-                      {!cls.enrollments || cls.enrollments.length === 0 ? (
-                        <p className="text-sm italic text-muted-foreground">No students enrolled yet.</p>
-                      ) : (
-                        cls.enrollments.map((student) => (
-                          <div key={student.id} className="flex items-center justify-between p-3 border border-white/5 bg-white/[0.02] rounded-sm">
-                            <div>
-                              <div className="text-sm font-medium">{student.profiles?.full_name}</div>
-                              <div className="text-xs text-muted-foreground">{student.profiles?.email}</div>
-                            </div>
-                            
-                            {student.status === 'pending' ? (
-                              <button 
-                                onClick={() => handleApproveEnrollment(student.id)}
-                                className="px-3 py-1 bg-gold/10 text-gold border border-gold/30 hover:bg-gold hover:text-onyx text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
-                              >
-                                Approve
-                              </button>
+              {/* Active Sessions */}
+              <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8 flex flex-col max-h-[500px]">
+                <h3 className="font-serif text-2xl mb-6">Upcoming Lessons</h3>
+                <div className="space-y-4 overflow-y-auto flex-grow pr-2">
+                  {activeSessions.length === 0 ? (
+                    <p className="text-sm italic text-muted-foreground">No upcoming lessons scheduled.</p>
+                  ) : (
+                    activeSessions.map(session => {
+                      const dateObj = new Date(session.scheduled_for);
+                      const dateStr = dateObj.toLocaleDateString();
+                      const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      
+                      return (
+                        <div key={session.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-serif text-xl text-gold">{session.classes.name}</h4>
+                            <button 
+                              onClick={() => handleMarkSessionDone(session.id)}
+                              className="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500 hover:text-black text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
+                            >
+                              Mark Done
+                            </button>
+                          </div>
+                          <div className="text-xs text-muted-foreground mb-3">
+                            {dateStr} at {timeStr}
+                          </div>
+                          
+                          {/* Attendance Display */}
+                          <div className="mt-2 border-t border-white/5 pt-2">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">Checked In Students:</span>
+                            {session.attendance && session.attendance.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {session.attendance.map(att => (
+                                  <span key={att.student_id} className="text-xs bg-white/5 px-2 py-1 rounded-sm text-white">
+                                    {att.profiles?.full_name}
+                                  </span>
+                                ))}
+                              </div>
                             ) : (
-                              <span className="text-[10px] uppercase tracking-widest px-2 py-1 bg-green-500/10 text-green-400 rounded-sm">
-                                Active
-                              </span>
+                              <span className="text-xs italic text-muted-foreground">No students checked in yet</span>
                             )}
                           </div>
-                        ))
-                      )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'roster' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <h2 className="font-serif text-3xl mb-8 border-b border-white/5 pb-4">My Roster</h2>
+              
+              {myClasses.length === 0 ? (
+                <div className="bg-slate-custom/30 p-12 border border-white/5 rounded-sm text-center">
+                  <p className="text-muted-foreground">You have not been assigned to any classes yet.</p>
+                </div>
+              ) : (
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {myClasses.map((cls) => (
+                    <div key={cls.id} className="bg-slate-custom/30 border border-white/5 rounded-sm flex flex-col max-h-[500px]">
+                      
+                      {/* Class Header */}
+                      <div className="p-6 border-b border-white/5 bg-black/20">
+                        <h3 className="font-serif text-2xl text-gold">{cls.name}</h3>
+                        <div className="flex gap-4 text-xs text-muted-foreground mt-2">
+                          <span>{cls.instrument}</span>
+                          <span>•</span>
+                          <span>{cls.level}</span>
+                        </div>
+                      </div>
+
+                      {/* Student List */}
+                      <div className="p-6 overflow-y-auto flex-grow">
+                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Enrolled Students</h4>
+                        
+                        <div className="space-y-3">
+                          {!cls.enrollments || cls.enrollments.length === 0 ? (
+                            <p className="text-sm italic text-muted-foreground">No students enrolled yet.</p>
+                          ) : (
+                            cls.enrollments.map((student) => (
+                              <div key={student.id} className="flex items-center justify-between p-3 border border-white/5 bg-white/[0.02] rounded-sm">
+                                <div>
+                                  <div className="text-sm font-medium">{student.profiles?.full_name}</div>
+                                  <div className="text-xs text-muted-foreground">{student.profiles?.email}</div>
+                                </div>
+                                
+                                {student.status === 'pending' ? (
+                                  <button 
+                                    onClick={() => handleApproveEnrollment(student.id)}
+                                    className="px-3 py-1 bg-gold/10 text-gold border border-gold/30 hover:bg-gold hover:text-onyx text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
+                                  >
+                                    Approve
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] uppercase tracking-widest px-2 py-1 bg-green-500/10 text-green-400 rounded-sm">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                      
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'assignments' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-slate-custom/30 border border-white/5 rounded-sm p-6 md:p-8">
+                <h3 className="font-serif text-2xl mb-6">Create Assignment</h3>
+                <form onSubmit={handleCreateAssignment} className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Select Class</label>
+                      <select 
+                        required
+                        value={assignmentClassId}
+                        onChange={e => setAssignmentClassId(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                      >
+                        <option value="">-- Choose a class --</option>
+                        {myClasses.map(c => (
+                          <option key={c.id} value={c.id}>{c.name} ({c.level})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Due Date</label>
+                      <input 
+                        type="date" 
+                        required
+                        value={assignmentDue}
+                        onChange={e => setAssignmentDue(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                      />
                     </div>
                   </div>
                   
-                </div>
-              ))}
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Assignment Title</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={assignmentTitle}
+                      onChange={e => setAssignmentTitle(e.target.value)}
+                      placeholder="e.g. Practice C Major Scales"
+                      className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Description / Instructions</label>
+                    <textarea 
+                      value={assignmentDesc}
+                      onChange={e => setAssignmentDesc(e.target.value)}
+                      placeholder="What exactly should they do?"
+                      className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 focus:outline-none focus:border-gold min-h-[80px]"
+                    />
+                  </div>
+                  
+                  <button type="submit" className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-foreground text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm mt-4">
+                    Assign to Class
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>
-
       </div>
     </AppLayout>
   );

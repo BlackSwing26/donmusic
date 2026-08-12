@@ -5,7 +5,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../integrations/supabase/client";
 import { toast } from "sonner";
 
+type DashboardSearch = { tab?: string };
+
 export const Route = createFileRoute("/dashboard")({
+  validateSearch: (search: Record<string, unknown>): DashboardSearch => {
+    return {
+      tab: search.tab as string | undefined,
+    };
+  },
   component: Dashboard,
 });
 
@@ -52,6 +59,8 @@ function Dashboard() {
   const [myEnrollments, setMyEnrollments] = useState<EnrollmentData[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
   const [myAssignments, setMyAssignments] = useState<AssignmentData[]>([]);
+  const searchParams = Route.useSearch();
+  const activeTab = searchParams.tab || 'lessons';
 
   useEffect(() => {
     fetchDashboardData();
@@ -229,192 +238,205 @@ function Dashboard() {
 
   return (
     <AppLayout role="student" title="Personal Campus">
-      <div className="max-w-7xl mx-auto space-y-12">
-        
-        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6">
-          <div>
-            <h1 className="font-serif text-4xl md:text-5xl">Welcome back, {userName}.</h1>
-          </div>
-          <div className="flex gap-8">
-            <div className="text-center">
-              <div className="text-3xl font-serif text-gold">{myEnrollments.filter(e => e.status === 'active').length}</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Active Classes
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-serif text-gold">{upcomingSessions.length}</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Upcoming Lessons
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Upcoming Lessons Module */}
-        {upcomingSessions.length > 0 && (
-          <div>
-            <h2 className="font-serif text-3xl mb-6 border-b border-white/5 pb-4">Next Lessons</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingSessions.map(session => {
-                const dateObj = new Date(session.scheduled_for);
-                const dateStr = dateObj.toLocaleDateString();
-                const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
-                return (
-                  <div key={session.id} className="bg-slate-custom/30 p-6 border border-white/5 rounded-sm flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] font-bold text-gold uppercase tracking-widest mb-2 block">
-                        {dateStr} • {timeStr}
-                      </span>
-                      <h3 className="font-serif text-xl mb-1">{session.classes.name}</h3>
-                      <p className="text-xs text-muted-foreground mb-6">
-                        Instructor: {session.classes.class_teachers?.[0]?.profiles?.full_name || 'Unknown'}
-                      </p>
-                    </div>
-                    
-                    {session.hasCheckedIn ? (
-                      <div className="w-full text-center py-2 bg-green-500/10 text-green-400 border border-green-500/30 text-[10px] font-bold uppercase tracking-widest rounded-sm">
-                        Checked In
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => handleCheckIn(session.id)}
-                        className="w-full py-2 bg-gold/10 text-gold border border-gold/30 hover:bg-gold hover:text-onyx text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm"
-                      >
-                        Check-in
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* My Assignments Module */}
-        {myAssignments.length > 0 && (
-          <div>
-            <h2 className="font-serif text-3xl mb-6 border-b border-white/5 pb-4">My Coursework</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myAssignments.map(assignment => {
-                const dateObj = new Date(assignment.due_date);
-                const isCompleted = assignment.assignment_submissions?.some(s => s.status === 'completed');
-                
-                return (
-                  <div key={assignment.id} className={`p-6 border border-white/5 rounded-sm flex flex-col justify-between ${
-                    isCompleted ? 'bg-black/20 opacity-60' : 'bg-slate-custom/30'
-                  }`}>
-                    <div>
-                      <span className="text-[10px] font-bold text-gold uppercase tracking-widest mb-2 block">
-                        Due: {dateObj.toLocaleDateString()}
-                      </span>
-                      <h3 className="font-serif text-xl mb-1">{assignment.title}</h3>
-                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3 font-bold">
-                        {assignment.classes?.name}
-                      </div>
-                      <p className="text-sm text-foreground/80 mb-6">
-                        {assignment.description}
-                      </p>
-                    </div>
-                    
-                    {isCompleted ? (
-                      <div className="w-full text-center py-2 bg-green-500/10 text-green-400 border border-green-500/30 text-[10px] font-bold uppercase tracking-widest rounded-sm">
-                        Completed
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => handleCompleteAssignment(assignment.id)}
-                        className="w-full py-2 bg-gold text-onyx hover:bg-gold/90 text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm"
-                      >
-                        Mark Complete
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="grid lg:grid-cols-2 gap-6">
+      <div className="max-w-7xl mx-auto pb-12 space-y-8">
           
-          {/* My Classes */}
-          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm flex flex-col h-full">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">
-              My Schedule
-            </span>
-            <h3 className="font-serif text-2xl mb-6">Enrolled Classes</h3>
-            
-            <div className="space-y-4 flex-grow overflow-y-auto max-h-[400px] pr-2">
-              {myEnrollments.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">You haven't enrolled in any classes yet.</p>
-              ) : (
-                myEnrollments.map((enrollment) => (
-                  <div key={enrollment.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-serif text-xl text-gold">{enrollment.classes.name}</h4>
-                      <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded-sm ${
-                        enrollment.status === 'active' ? 'bg-green-500/10 text-green-400' : 
-                        enrollment.status === 'pending' ? 'bg-yellow-500/10 text-yellow-400' : 
-                        'bg-white/10 text-white'
-                      }`}>
-                        {enrollment.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground flex gap-4">
-                      <span>Level: {enrollment.classes.level}</span>
-                      <span>Instrument: {enrollment.classes.instrument}</span>
-                    </div>
-                    {enrollment.classes.class_teachers && enrollment.classes.class_teachers.length > 0 && (
-                      <div className="text-xs mt-2 text-white/70">
-                        Instructor: {enrollment.classes.class_teachers[0].profiles?.full_name || 'Unknown'}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+          <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 bg-slate-custom/30 p-8 border border-white/5 rounded-sm">
+            <div>
+              <h1 className="font-serif text-3xl mb-2">Welcome back, {userName}.</h1>
+              <p className="text-muted-foreground text-sm">Here is your campus overview</p>
+            </div>
+            <div className="flex gap-8">
+              <div className="text-center">
+                <div className="text-3xl font-serif text-gold">{myEnrollments.filter(e => e.status === 'active').length}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Active Classes
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-serif text-gold">{upcomingSessions.length}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Upcoming Lessons
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Available Classes */}
-          <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm flex flex-col h-full">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">
-              Course Catalog
-            </span>
-            <h3 className="font-serif text-2xl mb-6">Available Classes</h3>
-            
-            <div className="space-y-4 flex-grow overflow-y-auto max-h-[400px] pr-2">
-              {availableClasses.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">No new classes available right now.</p>
+          {activeTab === 'lessons' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <h2 className="font-serif text-3xl mb-6 border-b border-white/5 pb-4">Next Lessons</h2>
+              {upcomingSessions.length === 0 ? (
+                <div className="bg-slate-custom/30 p-12 border border-white/5 rounded-sm text-center">
+                  <p className="text-muted-foreground italic">You don't have any upcoming lessons scheduled.</p>
+                </div>
               ) : (
-                availableClasses.map((cls) => (
-                  <div key={cls.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
-                    <h4 className="font-serif text-xl text-gold mb-1">{cls.name}</h4>
-                    <p className="text-sm text-muted-foreground mb-3">{cls.description}</p>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {upcomingSessions.map(session => {
+                    const dateObj = new Date(session.scheduled_for);
+                    const dateStr = dateObj.toLocaleDateString();
+                    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     
-                    <div className="flex justify-between items-end">
-                      <div className="text-xs text-white/50">
-                        {cls.class_teachers && cls.class_teachers.length > 0 ? (
-                          <span>With {cls.class_teachers[0].profiles?.full_name}</span>
+                    return (
+                      <div key={session.id} className="bg-slate-custom/30 p-6 border border-white/5 rounded-sm flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-gold uppercase tracking-widest mb-2 block">
+                            {dateStr} • {timeStr}
+                          </span>
+                          <h3 className="font-serif text-xl mb-1">{session.classes.name}</h3>
+                          <p className="text-xs text-muted-foreground mb-6">
+                            Instructor: {session.classes.class_teachers?.[0]?.profiles?.full_name || 'Unknown'}
+                          </p>
+                        </div>
+                        
+                        {session.hasCheckedIn ? (
+                          <div className="w-full text-center py-2 bg-green-500/10 text-green-400 border border-green-500/30 text-[10px] font-bold uppercase tracking-widest rounded-sm">
+                            Checked In
+                          </div>
                         ) : (
-                          <span>Instructor TBA</span>
+                          <button 
+                            onClick={() => handleCheckIn(session.id)}
+                            className="w-full py-2 bg-gold/10 text-gold border border-gold/30 hover:bg-gold hover:text-onyx text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm"
+                          >
+                            Check-in
+                          </button>
                         )}
                       </div>
-                      <button 
-                        onClick={() => handleEnroll(cls.id)}
-                        className="px-4 py-2 border border-gold/50 text-gold hover:bg-gold hover:text-onyx text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
-                      >
-                        Enroll
-                      </button>
-                    </div>
-                  </div>
-                ))
+                    );
+                  })}
+                </div>
               )}
             </div>
-          </div>
+          )}
 
-        </div>
+          {activeTab === 'coursework' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <h2 className="font-serif text-3xl mb-6 border-b border-white/5 pb-4">My Coursework</h2>
+              {myAssignments.length === 0 ? (
+                <div className="bg-slate-custom/30 p-12 border border-white/5 rounded-sm text-center">
+                  <p className="text-muted-foreground italic">You don't have any assignments yet.</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {myAssignments.map(assignment => {
+                    const dateObj = new Date(assignment.due_date);
+                    const isCompleted = assignment.assignment_submissions?.some(s => s.status === 'completed');
+                    
+                    return (
+                      <div key={assignment.id} className={`p-6 border border-white/5 rounded-sm flex flex-col justify-between ${
+                        isCompleted ? 'bg-black/20 opacity-60' : 'bg-slate-custom/30'
+                      }`}>
+                        <div>
+                          <span className="text-[10px] font-bold text-gold uppercase tracking-widest mb-2 block">
+                            Due: {dateObj.toLocaleDateString()}
+                          </span>
+                          <h3 className="font-serif text-xl mb-1">{assignment.title}</h3>
+                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3 font-bold">
+                            {assignment.classes?.name}
+                          </div>
+                          <p className="text-sm text-foreground/80 mb-6">
+                            {assignment.description}
+                          </p>
+                        </div>
+                        
+                        {isCompleted ? (
+                          <div className="w-full text-center py-2 bg-green-500/10 text-green-400 border border-green-500/30 text-[10px] font-bold uppercase tracking-widest rounded-sm">
+                            Completed
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => handleCompleteAssignment(assignment.id)}
+                            className="w-full py-2 bg-gold text-onyx hover:bg-gold/90 text-[10px] font-bold uppercase tracking-widest transition-all rounded-sm"
+                          >
+                            Mark Complete
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'schedule' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm flex flex-col max-h-[600px]">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">
+                  My Schedule
+                </span>
+                <h3 className="font-serif text-2xl mb-6">Enrolled Classes</h3>
+                
+                <div className="space-y-4 flex-grow overflow-y-auto pr-2">
+                  {myEnrollments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">You haven't enrolled in any classes yet.</p>
+                  ) : (
+                    myEnrollments.map((enrollment) => (
+                      <div key={enrollment.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-serif text-xl text-gold">{enrollment.classes.name}</h4>
+                          <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded-sm ${
+                            enrollment.status === 'active' ? 'bg-green-500/10 text-green-400' : 
+                            enrollment.status === 'pending' ? 'bg-yellow-500/10 text-yellow-400' : 
+                            'bg-white/10 text-white'
+                          }`}>
+                            {enrollment.status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground flex gap-4">
+                          <span>Level: {enrollment.classes.level}</span>
+                          <span>Instrument: {enrollment.classes.instrument}</span>
+                        </div>
+                        {enrollment.classes.class_teachers && enrollment.classes.class_teachers.length > 0 && (
+                          <div className="text-xs mt-2 text-white/70">
+                            Instructor: {enrollment.classes.class_teachers[0].profiles?.full_name || 'Unknown'}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'catalog' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-slate-custom/30 p-8 border border-white/5 rounded-sm flex flex-col max-h-[600px]">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">
+                  Course Catalog
+                </span>
+                <h3 className="font-serif text-2xl mb-6">Available Classes</h3>
+                
+                <div className="space-y-4 flex-grow overflow-y-auto pr-2">
+                  {availableClasses.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">No new classes available right now.</p>
+                  ) : (
+                    availableClasses.map((cls) => (
+                      <div key={cls.id} className="p-4 border border-white/10 rounded-sm bg-black/20">
+                        <h4 className="font-serif text-xl text-gold mb-1">{cls.name}</h4>
+                        <p className="text-sm text-muted-foreground mb-3">{cls.description}</p>
+                        
+                        <div className="flex justify-between items-end">
+                          <div className="text-xs text-white/50">
+                            {cls.class_teachers && cls.class_teachers.length > 0 ? (
+                              <span>With {cls.class_teachers[0].profiles?.full_name}</span>
+                            ) : (
+                              <span>Instructor TBA</span>
+                            )}
+                          </div>
+                          <button 
+                            onClick={() => handleEnroll(cls.id)}
+                            className="px-4 py-2 border border-gold/50 text-gold hover:bg-gold hover:text-onyx text-[10px] uppercase tracking-widest font-bold transition-all rounded-sm"
+                          >
+                            Enroll
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
       </div>
     </AppLayout>
