@@ -34,8 +34,13 @@ export function Navbar() {
           );
         })}
       </div>
-      <div className="size-10 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold text-xs font-bold uppercase">
-        JD
+      <div className="flex items-center gap-4">
+        <Link to="/login" className="text-xs uppercase tracking-widest text-muted-foreground hover:text-gold transition-colors">
+          Sign In
+        </Link>
+        <div className="size-10 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold text-xs font-bold uppercase cursor-pointer">
+          JD
+        </div>
       </div>
     </nav>
   );
