@@ -42,16 +42,19 @@ export function AppLayout({ children, role = "student", title = "Dashboard" }: A
         return [
           { to: "/admin", label: "Overview" },
           { to: "/classes", label: "Catalog" },
+          { to: "/messages", label: "Messages" },
         ];
       case "teacher":
         return [
           { to: "/teacher", label: "My Classes" },
           { to: "/instructors", label: "Faculty Directory" },
+          { to: "/messages", label: "Messages" },
         ];
       default: // student
         return [
           { to: "/dashboard", label: "My Campus" },
           { to: "/classes", label: "Browse Classes" },
+          { to: "/messages", label: "Messages" },
         ];
     }
   };
