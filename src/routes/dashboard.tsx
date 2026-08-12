@@ -1,21 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Navbar } from "../components/Navbar";
-import { Footer } from "../components/Footer";
+import { AppLayout } from "../components/AppLayout";
 import lessonMaterials from "../assets/lesson-materials.jpg";
 import performanceHighlight from "../assets/performance-highlight.jpg";
 import galleryPiano from "../assets/gallery-piano.jpg";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { supabase } from "../integrations/supabase/client";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({
-    meta: [
-      { title: "Student Dashboard — DonMusic" },
-      { name: "description", content: "Your personalized DonMusic dashboard: track milestones, view your schedule, and stay motivated." },
-      { property: "og:title", content: "Student Dashboard — DonMusic" },
-      { property: "og:description", content: "Your personalized DonMusic dashboard: track milestones, view your schedule, and stay motivated." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
   component: Dashboard,
 });
 
@@ -31,10 +23,6 @@ const schedule = [
   { day: "Wed", time: "6:00 PM", title: "Cello Technique Lab", with: "Elena Voss" },
   { day: "Fri", time: "5:00 PM", title: "Composition Workshop", with: "Marcus Reed" },
 ];
-
-import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { supabase } from "../integrations/supabase/client";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -57,7 +45,6 @@ function Dashboard() {
         .single();
         
       if (profile?.full_name) {
-        // Extract first name
         setUserName(profile.full_name.split(' ')[0]);
       }
       setLoading(false);
@@ -71,15 +58,10 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      <Navbar />
-
-      <section className="px-6 md:px-8 py-12 max-w-7xl mx-auto">
+    <AppLayout role="student" title="Personal Campus">
+      <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 mb-12">
           <div>
-            <h2 className="text-xs uppercase tracking-[0.3em] text-gold mb-2 font-bold">
-              Personal Campus
-            </h2>
             <h1 className="font-serif text-4xl md:text-5xl">Welcome back, {userName}.</h1>
           </div>
           <div className="flex gap-8">
@@ -117,10 +99,7 @@ function Dashboard() {
             <img
               src={lessonMaterials}
               alt="Sheet music on a dark piano"
-              width={1024}
-              height={512}
-              loading="lazy"
-              className="w-full h-32 object-cover bg-slate-custom mb-6"
+              className="w-full h-32 object-cover bg-slate-custom mb-6 rounded-sm"
             />
             <button className="w-full py-3 border border-gold/50 text-gold text-[10px] font-bold uppercase tracking-widest hover:bg-gold hover:text-onyx transition-all">
               Join Digital Studio
@@ -143,11 +122,11 @@ function Dashboard() {
                     {milestone.title}
                   </span>
                   {milestone.status === "completed" ? (
-                    <span className="text-[10px] text-gold border border-gold/30 px-2 py-0.5">
+                    <span className="text-[10px] text-gold border border-gold/30 px-2 py-0.5 rounded-sm">
                       COMPLETED
                     </span>
                   ) : milestone.status === "locked" ? (
-                    <span className="text-[10px] uppercase">Locked</span>
+                    <span className="text-[10px] uppercase opacity-50">Locked</span>
                   ) : (
                     <div className="h-1.5 w-24 bg-slate-800 rounded-full overflow-hidden">
                       <div
@@ -189,9 +168,6 @@ function Dashboard() {
             <img
               src={performanceHighlight}
               alt="Cinematic stage lighting and microphone"
-              width={1200}
-              height={800}
-              loading="lazy"
               className="w-full aspect-video object-cover bg-slate-custom"
             />
             <div className="p-6">
@@ -207,9 +183,6 @@ function Dashboard() {
             <img
               src={galleryPiano}
               alt="Hands playing a grand piano"
-              width={800}
-              height={600}
-              loading="lazy"
               className="w-full aspect-video object-cover bg-slate-custom"
             />
             <div className="p-6">
@@ -220,9 +193,7 @@ function Dashboard() {
             </div>
           </div>
         </div>
-      </section>
-
-      <Footer />
-    </div>
+      </div>
+    </AppLayout>
   );
 }

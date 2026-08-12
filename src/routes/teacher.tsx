@@ -1,23 +1,58 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Navbar } from "../components/Navbar";
-import { Footer } from "../components/Footer";
+import { AppLayout } from "../components/AppLayout";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { supabase } from "../integrations/supabase/client";
 
 export const Route = createFileRoute("/teacher")({
   component: TeacherDashboard,
 });
 
 function TeacherDashboard() {
-  return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      <Navbar />
+  const navigate = useNavigate();
+  const [userName, setUserName] = useState("Instructor");
+  const [loading, setLoading] = useState(true);
 
-      <section className="px-6 md:px-8 py-12 max-w-7xl mx-auto">
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate({ to: "/login" });
+        return;
+      }
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (profile?.role !== 'teacher' && profile?.role !== 'admin') {
+        navigate({ to: "/dashboard" });
+        return;
+      }
+      
+      if (profile?.full_name) {
+        setUserName(profile.full_name.split(' ')[0]);
+      }
+      
+      setLoading(false);
+    };
+    
+    checkAuth();
+  }, [navigate]);
+
+  if (loading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center text-gold">Loading faculty portal...</div>;
+  }
+
+  return (
+    <AppLayout role="teacher" title="Faculty Portal">
+      <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 mb-12">
           <div>
-            <h2 className="text-xs uppercase tracking-[0.3em] text-gold mb-2 font-bold">
-              Faculty Portal
-            </h2>
-            <h1 className="font-serif text-4xl md:text-5xl">Welcome, Instructor.</h1>
+            <h1 className="font-serif text-4xl md:text-5xl">Welcome, {userName}.</h1>
           </div>
           <div className="flex gap-8">
             <div className="text-center">
@@ -64,9 +99,7 @@ function TeacherDashboard() {
             </button>
           </div>
         </div>
-      </section>
-
-      <Footer />
-    </div>
+      </div>
+    </AppLayout>
   );
 }
