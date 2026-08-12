@@ -16,6 +16,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as InstructorsRouteImport } from './routes/instructors'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -55,6 +56,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/gallery': typeof GalleryRoute
   '/instructors': typeof InstructorsRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/signup': typeof SignupRoute
   '/teacher': typeof TeacherRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/gallery': typeof GalleryRoute
   '/instructors': typeof InstructorsRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/signup': typeof SignupRoute
   '/teacher': typeof TeacherRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/gallery': typeof GalleryRoute
   '/instructors': typeof InstructorsRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/signup': typeof SignupRoute
   '/teacher': typeof TeacherRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/instructors'
     | '/login'
+    | '/messages'
     | '/signup'
     | '/teacher'
     | '/auth/callback'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/instructors'
     | '/login'
+    | '/messages'
     | '/signup'
     | '/teacher'
     | '/auth/callback'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/instructors'
     | '/login'
+    | '/messages'
     | '/signup'
     | '/teacher'
     | '/auth/callback'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   GalleryRoute: typeof GalleryRoute
   InstructorsRoute: typeof InstructorsRoute
   LoginRoute: typeof LoginRoute
+  MessagesRoute: typeof MessagesRoute
   SignupRoute: typeof SignupRoute
   TeacherRoute: typeof TeacherRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -211,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   GalleryRoute: GalleryRoute,
   InstructorsRoute: InstructorsRoute,
   LoginRoute: LoginRoute,
+  MessagesRoute: MessagesRoute,
   SignupRoute: SignupRoute,
   TeacherRoute: TeacherRoute,
   AuthCallbackRoute: AuthCallbackRoute,
