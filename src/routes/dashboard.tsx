@@ -32,7 +32,44 @@ const schedule = [
   { day: "Fri", time: "5:00 PM", title: "Composition Workshop", with: "Marcus Reed" },
 ];
 
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { supabase } from "../integrations/supabase/client";
+
 function Dashboard() {
+  const navigate = useNavigate();
+  const [userName, setUserName] = useState("Student");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate({ to: "/login" });
+        return;
+      }
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (profile?.full_name) {
+        // Extract first name
+        setUserName(profile.full_name.split(' ')[0]);
+      }
+      setLoading(false);
+    };
+    
+    checkAuth();
+  }, [navigate]);
+
+  if (loading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center text-gold">Loading campus...</div>;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <Navbar />
@@ -43,7 +80,7 @@ function Dashboard() {
             <h2 className="text-xs uppercase tracking-[0.3em] text-gold mb-2 font-bold">
               Personal Campus
             </h2>
-            <h1 className="font-serif text-4xl md:text-5xl">Welcome back, Julian.</h1>
+            <h1 className="font-serif text-4xl md:text-5xl">Welcome back, {userName}.</h1>
           </div>
           <div className="flex gap-8">
             <div className="text-center">
