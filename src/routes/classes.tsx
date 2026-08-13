@@ -128,32 +128,31 @@ function Classes() {
           ))}
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
           {filteredClasses.map((item) => (
             <Link
               key={item.id}
               to="/dashboard"
-              className="group cursor-pointer block"
+              className="group block"
             >
-              <img
-                src={item.image}
-                alt={item.alt}
-                width={800}
-                height={1000}
-                loading="lazy"
-                className="w-full aspect-[4/5] object-cover bg-slate-custom outline outline-1 -outline-offset-1 outline-white/5 rounded-sm mb-5 group-hover:opacity-90 transition-opacity"
-              />
-              <p className="text-[10px] uppercase tracking-[0.2em] text-gold font-semibold mb-1">
-                {item.level}
-              </p>
-              <h3 className="text-xl font-serif group-hover:text-gold transition-colors">
-                {item.title}
-              </h3>
-              <div className="flex justify-between items-center mt-2">
-                <p className="text-sm text-muted-foreground">{item.duration}</p>
-                <span className="text-xs font-bold text-gold border border-gold/30 px-2 py-0.5">
-                  {item.price}
-                </span>
+              <div className="overflow-hidden rounded-sm mb-5 relative">
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors z-10" />
+                <img
+                  src={item.image}
+                  alt={item.alt}
+                  width={800}
+                  height={1000}
+                  loading="lazy"
+                  className="w-full aspect-[4/5] object-cover bg-slate-custom transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+              <div className="flex flex-col items-center text-center">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gold font-semibold mb-2">
+                  {item.category} • {item.level}
+                </p>
+                <h3 className="text-2xl font-serif group-hover:text-gold transition-colors">
+                  {item.title}
+                </h3>
               </div>
             </Link>
           ))}

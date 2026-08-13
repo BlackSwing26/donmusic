@@ -73,44 +73,31 @@ function Instructors() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
           {instructors.map((instructor) => (
-            <div
+            <Link
               key={instructor.id}
-              className="group bg-slate-custom/30 border border-white/5 rounded-sm overflow-hidden flex flex-col md:flex-row"
+              to="/classes"
+              className="group block"
             >
-              <img
-                src={instructor.image}
-                alt={instructor.alt}
-                width={400}
-                height={500}
-                loading="lazy"
-                className="w-full md:w-48 aspect-square md:aspect-auto object-cover bg-slate-custom"
-              />
-              <div className="p-8 flex flex-col justify-center">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-gold font-semibold mb-2">
+              <div className="overflow-hidden rounded-sm mb-6 relative border border-white/5">
+                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors duration-500 z-10" />
+                <img
+                  src={instructor.image}
+                  alt={instructor.alt}
+                  width={400}
+                  height={500}
+                  loading="lazy"
+                  className="w-full aspect-[3/4] object-cover bg-slate-custom transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+              <div className="flex flex-col items-center text-center">
+                <h3 className="text-xl font-serif mb-2 group-hover:text-gold transition-colors">{instructor.name}</h3>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
                   {instructor.role}
                 </p>
-                <h3 className="text-2xl font-serif mb-3">{instructor.name}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-                  {instructor.bio}
-                </p>
-                <Link
-                  to="/classes"
-                  className="inline-flex items-center text-xs font-bold uppercase tracking-widest text-gold hover:text-foreground transition-colors"
-                >
-                  View Classes
-                  <svg
-                    className="ml-2 size-3"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.69 8 6.22 5.53a.75.75 0 0 1 0-1.06Z" />
-                  </svg>
-                </Link>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
